@@ -1,6 +1,36 @@
+#require "WS2812.class.nut:2.0.1"
+
+//Sets i2c for MPU Accelerometer
 i2c <- hardware.i2c89;
 i2c.configure(CLOCK_SPEED_400_KHZ);
 local address = (0x68<<1);
+local refresh = 1
+
+//Sets SPI for NEOPIXELS
+spi <- hardware.spi257;
+spi.configure(MSB_FIRST, 7500);
+
+// Instantiate LED array with 9 pixels
+pixels <- WS2812(spi, 72);
+pixels.fill([0,0,0]).draw();
+
+//A 'Light' sleep to conserve power. Delay in incoming daa.
+//imp.setpowersave(true)
+
+function draw_led(side){
+    local colors = array(7, array(3,0))
+    //[red, green, blue]
+    colors[0] = [255,255,255]
+    colors[1] = [255,0,0]
+    colors[2] = [0,255,0]
+    colors[3] = [0,0,255]
+    colors[4] = [255,255,0]
+    colors[5] = [0,255,255]
+    colors[6] = [255,0,255]
+
+    pixels.fill(colors[side]).draw();
+    //pixels.set(3,colors[6]).draw();
+}
 
 
 function round(val, decimalPoints) {
@@ -82,10 +112,13 @@ function readSensor() {
     i2c.write(address, "\x6B\x00");
     local result = i2c.read(address,"\x3b", 14);
     local dice = get_position(result)
-    local side = get_side(dice)
-    server.log("Dice Side  " + side);
+    dice.side <- get_side(dice)
+    draw_led(dice.side)
+    server.log("Dice Side  " + dice.side);
 
-    imp.wakeup(0.5, readSensor);
+    agent.send("data", dice);
+    
+    imp.wakeup(refresh, readSensor);
     
     /* Other Code
     local xgyro = (corr((result[8]<<8) | result[9]) / 16384.0);
@@ -95,7 +128,8 @@ function readSensor() {
     local tempC = (temp / 340.0) + 36.53;
     local tempF = tempC * 1.8 + 32;
     server.log(round(tempF, 1));
-     */
+    */
+     
 }
 
 readSensor();
